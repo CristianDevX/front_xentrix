@@ -1,0 +1,8 @@
+{
+  "/back-xentrix": {
+    "target": "http://localhost:28080",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  }
+}

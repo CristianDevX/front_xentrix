@@ -1,0 +1,193 @@
+<header class="top">
+  <div class="wrap">
+    <h1>Eventos</h1>
+    <p class="muted">Consulta y creacion de eventos.</p>
+  </div>
+</header>
+
+<main class="wrap layout">
+  <!-- ============ Búsqueda + tabla única ============ -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Consulta de eventos</h2>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn" type="button" (click)="searchAll()" [disabled]="loading">Buscar todos</button>
+
+      <form class="by-id" (ngSubmit)="searchById()">
+        <label class="sr-only" for="searchId">Id del evento</label>
+        <input id="searchId" type="number" min="1" placeholder="Id del evento"
+               [formControl]="idControl" [class.bad]="idControl.touched && idControl.invalid">
+        <button class="btn" type="submit" [disabled]="loading" (click)="searchById()">Buscar por id</button>
+      </form>
+
+      <button class="btn ghost push" type="button" (click)="clearSearch()" [disabled]="loading || !canClear">
+        Limpiar búsqueda
+      </button>
+    </div>
+
+    @if (idControl.touched && idControl.invalid) {
+      <p class="msg error inset">Escribe un id válido (número mayor a 0).</p>
+    }
+
+    <div class="caption">
+      @if (loading) {
+        Consultando…
+      } @else if (mode === 'all') {
+        Mostrando todos los eventos ({{ rows.length }})
+      } @else if (mode === 'id') {
+        Resultado para el id {{ searchedId }}
+      } @else {
+        Sin consulta
+      }
+    </div>
+
+    @if (rows.length > 0) {
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Id</th>
+              <th>Nombre</th>
+              <th>Tipo</th>
+              <th class="num">Capacidad</th>
+              <th>Lugar</th>
+              <th>Apertura</th>
+              <th>Cierre</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (ev of rows; track ev.id) {
+              <tr>
+                <td>{{ ev.id }}</td>
+                <td class="strong">{{ ev.name }}</td>
+                <td>{{ ev.type }}</td>
+                <td class="num">{{ ev.capacity }}</td>
+                <td>{{ ev.location }}</td>
+                <td>{{ ev.eventOpeningDate | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td>{{ ev.eventClosingDate | date:'dd/MM/yyyy HH:mm' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else if (!loading) {
+      <p class="empty">
+        @if (mode === 'none') {
+          Pulsa «Buscar todos» o consulta un evento por su id.
+        } @else {
+          {{ infoMessage }}
+        }
+      </p>
+    }
+  </section>
+
+  <!-- ============ Crear evento ============ -->
+  <aside class="panel sticky">
+    <div class="panel-head">
+      <h2>Nuevo evento</h2>
+    </div>
+
+    <form class="form" [formGroup]="form" (ngSubmit)="requestCreate()" novalidate>
+      <div class="field">
+        <label for="name">Nombre</label>
+        <input id="name" type="text" formControlName="name" [class.bad]="invalid('name')">
+        @if (invalid('name')) { <small class="msg error">El nombre es obligatorio (máx. 100 caracteres).</small> }
+      </div>
+
+      <div class="field">
+        <label for="type">Tipo</label>
+        <input id="type" type="text" formControlName="type" list="types" [class.bad]="invalid('type')">
+        <datalist id="types">
+          @for (t of typeSuggestions; track t) { <option [value]="t"></option> }
+        </datalist>
+        @if (invalid('type')) { <small class="msg error">Indica el tipo de evento.</small> }
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="capacity">Capacidad</label>
+          <input id="capacity" type="number" min="1" formControlName="capacity" [class.bad]="invalid('capacity')">
+          @if (invalid('capacity')) { <small class="msg error">Mínimo 1 persona.</small> }
+        </div>
+        <div class="field">
+          <label for="location">Lugar</label>
+          <input id="location" type="text" formControlName="location" [class.bad]="invalid('location')">
+          @if (invalid('location')) { <small class="msg error">El lugar es obligatorio.</small> }
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="open">Apertura</label>
+        <input id="open" type="datetime-local" formControlName="eventOpeningDate" [class.bad]="invalid('eventOpeningDate')">
+        @if (invalid('eventOpeningDate')) { <small class="msg error">Elige la fecha de apertura.</small> }
+      </div>
+
+      <div class="field">
+        <label for="close">Cierre</label>
+        <input id="close" type="datetime-local" formControlName="eventClosingDate" [class.bad]="invalid('eventClosingDate')">
+        @if (invalid('eventClosingDate')) { <small class="msg error">Elige la fecha de cierre.</small> }
+      </div>
+
+      @if (form.hasError('dateRange') && form.touched) {
+        <p class="msg error">El cierre debe ser posterior a la apertura.</p>
+      }
+
+      <button class="btn block" type="submit">Crear evento</button>
+    </form>
+  </aside>
+</main>
+
+<!-- ============ Modal: confirmar creación ============ -->
+@if (confirmOpen && pending) {
+  <div class="backdrop" (click)="cancelConfirm()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" (click)="$event.stopPropagation()">
+      <h2 id="confirm-title">¿Crear este evento?</h2>
+      <p class="muted">Revisa los datos antes de enviarlos.</p>
+      <dl class="summary">
+        <div><dt>Nombre</dt><dd>{{ pending.name }}</dd></div>
+        <div><dt>Tipo</dt><dd>{{ pending.type }}</dd></div>
+        <div><dt>Capacidad</dt><dd>{{ pending.capacity }} personas</dd></div>
+        <div><dt>Lugar</dt><dd>{{ pending.location }}</dd></div>
+        <div><dt>Apertura</dt><dd>{{ pending.eventOpeningDate | date:'dd/MM/yyyy HH:mm' }}</dd></div>
+        <div><dt>Cierre</dt><dd>{{ pending.eventClosingDate | date:'dd/MM/yyyy HH:mm' }}</dd></div>
+      </dl>
+      <div class="actions">
+        <button class="btn ghost" type="button" (click)="cancelConfirm()" [disabled]="saving">Cancelar</button>
+        <button class="btn" type="button" (click)="confirmCreate()" [disabled]="saving">
+          {{ saving ? 'Creando…' : 'Confirmar y crear' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ============ Modal: respuesta del backend al crear ============ -->
+@if (successOpen) {
+  <div class="backdrop" (click)="closeSuccess()">
+    <div class="modal ok" role="alertdialog" aria-modal="true" aria-labelledby="ok-title" (click)="$event.stopPropagation()">
+      <h2 id="ok-title">Proceso completado</h2>
+      <p class="server-msg">{{ successMessage }}</p>
+      <div class="actions">
+        <button class="btn" type="button" (click)="closeSuccess()">Aceptar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ============ Modal: error general ============ -->
+@if (errorOpen) {
+  <div class="backdrop" (click)="closeError()">
+    <div class="modal bad" role="alertdialog" aria-modal="true" aria-labelledby="err-title" (click)="$event.stopPropagation()">
+      <h2 id="err-title">Ocurrió un error</h2>
+      <p>No se pudo completar la operación. Intenta de nuevo; si el problema continúa, contacta al administrador.</p>
+      @if (errorDetail) {
+        <p class="detail-box">{{ errorDetail }}</p>
+      }
+      <div class="actions">
+        <button class="btn danger" type="button" (click)="closeError()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+}
